@@ -1,0 +1,92 @@
+﻿#include <stdio.h>
+#include "board.h"
+#include "peripherals.h"
+#include "clock_config.h"
+#include "MKL28Z7.h"
+#include "fsl_debug_console.h"
+#include <delay.h>
+
+
+
+void ConfSystemTick(void){
+	SysTick->LOAD|=(192000000UL/16); /*Registro a 2s*/
+	SysTick->VAL=0; /*Limpiar cualquier valor y/o bandera de conteo existente en SystemTick*/
+	SysTick->CTRL=(1UL<<0); /*Encender SysTick con reloj del procesador*/
+}
+
+//se declaran los puertos a utilizar//
+void ConfPins (void){
+
+	/*entradas*/
+	PORTA-> PCR [5]=0x100; /* pin 5 A tipo GPIO (sensor IZQ) */
+	PORTA-> PCR [6]=0x100; /* pin 6 A tipo GPIO (sensor DER) */
+	GPIOA-> PDDR =(0UL << 5); /* establecer pin como input */
+	GPIOA-> PDDR =(0UL << 6); /* establecer pin como input */
+
+    /*salidas*/
+	PORTA-> PCR [12]=0x100; /* pin 12 A tipo GPIO (sensor IZQ) */
+	PORTA-> PCR [13]=0x100; /* pin 13 A tipo GPIO (sensor DER) */
+	GPIOA-> PDDR =(1UL << 12); /* establecer pin como output */
+	GPIOA-> PDDR =(1UL << 13); /* establecer pin como output */
+
+}
+
+
+int main(void)
+{
+ConfSystemTick();
+ConfPins();
+BOARD_InitBootPins();
+BOARD_InitBootClocks();
+BOARD_InitBootPeripherals();
+BOARD_InitDebugConsole();
+
+
+
+
+
+
+
+
+
+for (;;)
+{
+
+	i++;
+
+	if (GPIOA_PDIR & (1<<5) == 1) /*Sensor IZQ activado*/
+			{
+		if (GPIOA_PDIR & (1<<6) == 1) /*Sensor DER activado*/
+		{
+			delayMs(50);
+			GPIOA_PDOR &= ~(1<<12); /*Adelante IZQ*/
+			GPIOA_PDOR &= ~(1<<13);    /*Adelante DER*/
+		}
+
+		else if ((GPIOA_PDIR & (1<<6)) == 0) /*Sensor DER apagado a 0*/
+		{
+			delayMs(50);
+			GPIOA_PDOR |= (1<<12); /*Alto IZQ*/
+			GPIOA_PDOR &= ~(1<<13); /*Adelante DER - Corregir a la IZQ*/
+		}
+			}
+
+	else if (GPIOA_PDIR & (1<<5) == 0) /*Sensor IZQ apagado*/
+	{
+		if(GPIOA_PDIR & (1<<6) == 1) /*Sensor DER activado*/
+		{
+			delayMs(50);
+			GPIOA_PDOR &= ~(1<<12); /*Adelante IZQ*/
+			GPIOA_PDOR |= (1<<13); /*Alto DER*/
+		}
+
+		else if (GPIOA_PDIR & (1<<6) == 1) /*Sensor DER apagado*/
+		{
+			GPIOA_PDOR |= (1<<12); /*Alto - Perdido*/
+			GPIOA_PDOR |= (1<<13); /*Alto - Perdido*/
+		}
+	}
+}
+return 0;
+}
+
